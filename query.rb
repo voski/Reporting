@@ -17,14 +17,14 @@ class Query
 
   def payment_sql
     sql = <<-SQL
-            SELECT payment.id as payment_id, orders.uuid as order_uuid, sum(payment.amount) as payment_amount,
-              COALESCE(sum(payment.tax_amount),0) as payment_tax_amount,
-              COALESCE(sum(payment.tip_amount),0) as payment_tip_amount,
+            SELECT  payment.id as payment_id, orders.uuid as order_uuid, payment.amount as payment_amount,
+              COALESCE(payment.tax_amount,0) as payment_tax_amount,
+              COALESCE(payment.tip_amount,0) as payment_tip_amount,
               payment.merchant_tender_id as payment_merchant_tender_id,
               merchant_tender.label as payment_merchant_tender_label,
               merchant_tender.label_key as payment_merchant_tender_label_key, account.name as employee_name,
               account.uuid as employee_id, gateway_tx.card_type as card_type,
-              COALESCE(sum(payment_service_charge.amount),0) as payment_service_charge_amount
+              COALESCE(payment_service_charge.amount,0) as payment_service_charge_amount
             FROM #{payment}
             LEFT OUTER JOIN #{payment_service_charge} ON payment_service_charge.payment_id = payment.id
             LEFT OUTER JOIN #{merchant_tender} ON merchant_tender.id = payment.merchant_tender_id
@@ -37,7 +37,7 @@ class Query
             AND payment.result = 'success'
             AND orders.deleted_timestamp IS NULL
             AND orders.modified_time >= "#{@options[:start_time]}"
-            AND payment.payment_refund_id IS NULL;
+            AND payment.payment_refund_id IS NULL
           SQL
   end
 

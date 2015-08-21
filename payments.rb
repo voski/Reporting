@@ -39,15 +39,19 @@ class Payments
 
   def render
     puts "Gross Payments "
-    print "total = #{total}, "
-    print "revenue = #{total - tax_total}, "
-    print "tax = #{tax_total}, "
-    print "tip = #{tip_total}, "
-    print "service charge = #{service_total}, "
+    print "total = $#{cents_to_string total}, "
+    print "revenue = #{cents_to_string (total - tax_total)}, "
+    print "tax = #{cents_to_string tax_total}, "
+    print "tip = #{cents_to_string tip_total}, "
+    print "service charge = #{cents_to_string service_total}, "
     puts "#{count} transactions"
   end
 
   def columns
     @payments.first.columns
+  end
+
+  def cents_to_string cents
+    "$#{cents/100}.#{cents%100}"
   end
 end
