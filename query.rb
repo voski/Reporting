@@ -8,12 +8,45 @@ class Query
     end
   end
 
-  def payments_from_narb
+  def not_null_receipts
     sql = <<-SQL
-            select * from #{payment} where order_id in (select id from #{orders} where merchant_id = 1417);
+            SELECT receipt_properties
+            FROM #{merchant}
+            WHERE receipt_properties IS NOT NULL
           SQL
   end
 
+  def non_revenue_payments
+    sql = <<-SQL
+            SELECT *
+            FROM #{line_item}
+            WHERE created_time >= "#{@options[:start_time]}"
+              AND created_time <= "#{@options[:end_time]}"
+              AND refund_id IS NULL
+              AND is_revenue = 0
+              AND order_id IN (
+                SELECT id
+                FROM #{orders}
+                WHERE merchant_id = #{@options[:merchant_id]}
+                AND deleted_timestamp IS NULL
+                AND state IS NOT NULL
+                AND modified_time >= "#{@options[:start_time]}"
+                AND created_time >= "#{@options[:start_time]}"
+                AND created_time <= "#{@options[:end_time]}"
+              )
+          SQL
+  end
+
+  def orders_by_merchant
+    sql = <<-SQL
+            SELECT *
+            FROM #{orders}
+            WHERE merchant_id = #{@options[:merchant_id]}
+            AND deleted_timestamp IS NULL
+            AND created_time >= "#{@options[:start_time]}"
+            AND created_time <= "#{@options[:end_time]}"
+          SQL
+  end
 
   def payment_sql
     sql = <<-SQL
@@ -26,19 +59,41 @@ class Query
               account.uuid as employee_id, gateway_tx.card_type as card_type,
               COALESCE(payment_service_charge.amount,0) as payment_service_charge_amount
             FROM #{payment}
-            LEFT OUTER JOIN #{payment_service_charge} ON payment_service_charge.payment_id = payment.id
-            LEFT OUTER JOIN #{merchant_tender} ON merchant_tender.id = payment.merchant_tender_id
-            LEFT OUTER JOIN #{orders} ON orders.id = payment.order_id
-            LEFT OUTER JOIN #{account} on payment.account_id = account.id
-            LEFT OUTER JOIN #{gateway_tx} ON payment.gateway_tx_id = gateway_tx.id
+              LEFT OUTER JOIN #{payment_service_charge} ON payment_service_charge.payment_id = payment.id
+              LEFT OUTER JOIN #{merchant_tender} ON merchant_tender.id = payment.merchant_tender_id
+              LEFT OUTER JOIN #{orders} ON orders.id = payment.order_id
+              LEFT OUTER JOIN #{account} on payment.account_id = account.id
+              LEFT OUTER JOIN #{gateway_tx} ON payment.gateway_tx_id = gateway_tx.id
             WHERE orders.merchant_id = #{@options[:merchant_id]}
-            AND payment.client_created_time >= "#{@options[:start_time]}"
-            AND payment.client_created_time <= "#{@options[:end_time]}"
-            AND payment.result = 'success'
-            AND orders.deleted_timestamp IS NULL
-            AND orders.modified_time >= "#{@options[:start_time]}"
-            AND payment.payment_refund_id IS NULL
+              AND payment.client_created_time >= "#{@options[:start_time]}"
+              AND payment.client_created_time <= "#{@options[:end_time]}"
+              AND payment.result = 'success'
+              AND orders.deleted_timestamp IS NULL
+              AND orders.modified_time >= "#{@options[:start_time]}"
+              AND payment.payment_refund_id IS NULL
           SQL
+  end
+
+  def item_sql
+    sql = <<-SQL
+      SELECT li.uuid AS id, i.uuid AS item_id, li.unit_price AS price, li.unit_qty AS unit_qty,
+      COALESCE(li.name, 'Custom Item') AS name, li.is_revenue AS revenue_item,
+      li.exchanged_line_item_id IS NOT NULL AS exchanged, li.refund_id IS NOT NULL AS refunded,
+      GROUP_CONCAT(DISTINCT CASE WHEN a.uuid IS NULL THEN NULL ELSE CONCAT_WS(0x1F, COALESCE(a.uuid, ''),
+        COALESCE(a.type, ''), COALESCE(a.amount, ''), COALESCE(a.percentage, ''), COALESCE(COALESCE(COALESCE(d.name, a.name),
+        'Generic Discount'), '')) END ORDER BY a.uuid SEPARATOR 0x1E)
+      AS raw_adjustments, GROUP_CONCAT(CASE WHEN lim.uuid IS NULL THEN NULL ELSE CONCAT_WS(0x1F, COALESCE(lim.uuid, ''),
+      COALESCE(lim.amount, ''), COALESCE(lim.name, ''), COALESCE(m.uuid, '')) END ORDER BY lim.uuid SEPARATOR 0x1E) AS raw_modifications
+      FROM #{line_item} AS li
+      JOIN #{orders} AS o ON (o.id = li.order_id)
+      LEFT JOIN #{item} AS i ON (i.id = li.item_id)
+      LEFT JOIN #{payment} AS p ON (o.id = p.order_id)
+      LEFT JOIN #{adjustment} AS a ON (a.line_item_id = li.id)
+      LEFT JOIN #{discount} AS d ON (a.discount_id = d.id)
+      LEFT JOIN #{line_item_modification} AS lim ON (lim.line_item_id = li.id)
+      LEFT JOIN #{modifier} AS m ON (lim.modifier_id = m.id)
+      WHERE o.merchant_id = 1417;
+    SQL
   end
 
   def payments_regular_join
@@ -84,7 +139,7 @@ class Query
         SQL
   end
 
-  def refund
+  def refund_sql
     sql = <<-SQL
             SELECT refund.id as refund_id, payment.id as payment_id, orders.id as order_id,
             refund.amount as refund_amount,
@@ -107,7 +162,7 @@ class Query
         SQL
   end
 
-  def credit
+  def credit_sql
     sql = <<-SQL
           SELECT credit.id as credit_id, orders.uuid as order_uuid, credit.amount as credit_amount,
           COALESCE(credit.tax_amount,0) as credit_tax_amount,
@@ -151,6 +206,20 @@ class Query
             FROM orders
             WHERE uuid in (#{order_list.join(', ')})
           SQL
+  end
+
+  def line_item_income
+    sql = <<-SQL
+      SELECT sum(unit_price)
+      FROM line_item
+      WHERE line_item.created_time >= ?
+      AND line_item.created_time <= ?
+        (SELECT id
+          FROM orders
+          WHERE merchant_id = ?
+          AND orders.deleted_timestamp IS NULL
+          AND orders.modified time >= ?)
+      SQL
   end
 
 end

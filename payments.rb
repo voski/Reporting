@@ -38,7 +38,7 @@ class Payments
 
 
   def render
-    puts "Gross Payments "
+    print "Payments || "
     print "total = $#{cents_to_string total}, "
     print "revenue = #{cents_to_string (total - tax_total)}, "
     print "tax = #{cents_to_string tax_total}, "
@@ -52,6 +52,9 @@ class Payments
   end
 
   def cents_to_string cents
+    if cents == nil
+      return "$0.00"
+    end
     "$#{cents/100}.#{cents%100}"
   end
 end

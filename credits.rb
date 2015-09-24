@@ -32,14 +32,18 @@ class Credits
   end
 
   def render
-    puts "Gross Credits "
-    print "total = #{total}, "
-    print "revenue = #{total - tax_total}, "
-    print "tax = #{tax_total}, "
+    print "Credits  || "
+    print "total = #{cents_to_string total}, "
+    print "revenue = #{cents_to_string (total - tax_total)}, "
+    print "tax = #{cents_to_string tax_total}, "
     puts "#{count} transactions"
   end
 
   def columns
     @credits.first.columns
+  end
+
+  def cents_to_string cents
+    "$#{cents/100}.#{cents%100}"
   end
 end

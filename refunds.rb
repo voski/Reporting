@@ -31,17 +31,20 @@ class Refunds
     map { |refund| credit.order_id }
   end
 
-
   def render
-    puts "Gross Refunds "
-    print "total = #{total}, "
-    print "revenue = #{total - tax_total}, "
-    print "tax = #{tax_total}, "
-    print "service charge = #{service_total}, "
+    print "Refunds  || "
+    print "total = #{cents_to_string total}, "
+    print "revenue = #{cents_to_string (total - tax_total)}, "
+    print "tax = #{cents_to_string tax_total}, "
+    print "service charge = #{cents_to_string service_total}, "
     puts "#{count} transactions"
   end
 
   def columns
     @refunds.first.columns
+  end
+
+  def cents_to_string cents
+    "$#{cents/100}.#{cents%100}"
   end
 end

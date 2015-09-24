@@ -26,15 +26,14 @@ end
 class Payment < SQLObject
 end
 
-# class Refund < ActiveRecord::Base
-#   self.table_name = "refund"
-# end
-#
-# class Credit < ActiveRecord::Base
-# end
-#
-# class Cash < ActiveRecord::Base
-# end
-#
-# class Order < ActiveRecord::Base
-# end
+class Refund < SQLObject
+end
+
+class Credit < SQLObject
+end
+
+class Cash < SQLObject
+end
+
+class Order < SQLObject
+end
