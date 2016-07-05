@@ -1,11 +1,12 @@
 require 'mysql2'
 require_relative 'query.rb'
+require 'yaml'
 
 class CloverClient
   attr_reader :client, :db_map
 
   def initialize (options={})
-    defaults = {databases: %w(orders meta)}
+    defaults = {databases: %w(cos)}
     options = defaults.merge(options)
     @client = open_connection(options)
     @db_map = map_tables(@client, options[:databases])
@@ -41,10 +42,7 @@ class CloverClient
   end
 
   def open_connection (options={})
-    defaults = {host: "localhost", username: "root"}
-    options = defaults.merge(options)
-    Mysql2::Client.new(host: options[:host], username: options[:username])
+    p801 = YAML::load_file(ENV['HOME'] + "/.clover/p801.yml")
+    Mysql2::Client.new(p801)
   end
-
-
 end
